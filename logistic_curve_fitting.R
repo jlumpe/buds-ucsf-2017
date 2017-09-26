@@ -7,15 +7,16 @@
 library("drc")
 
 # sets working directory to appropriate repo 
-setwd("/Users/Christa.Caggiano/Documents/UCSF_year1/PUBS/") 
+setwd("/Users/Christa.Caggiano/Documents/UCSF_year1/PUBS/buds-ucsf-2017/") 
 df = read.csv("doubling_time.csv")
-
+df
 dose = df$Dose # x is dose 
 OD = df$OD..actual. # OD is response
-OD = y/.13 # fa
 
-mL <- drm(OD ~ dose, data = df, fct = L.3(), type = "continuous") # fits a 3 parameter continuous curve
+mL <- drm(OD ~ dose, data = df, fct = L.4(), type = "continuous") # fits a 4 parameter continuous curve
 mL # parameters for logisitic equation 
+summary(mL)
 
+install.packages("Hmisc")
+library(Hmisc)
 plot(mL, type="all", col=454, main="logistic curve for dose/OD data", panel.first=grid()) # plots curve 
-
