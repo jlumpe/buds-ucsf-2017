@@ -9,45 +9,51 @@ from Bio import SeqIO
 
 
 # Regular expression for Illumina FASTQ header
-ILLUMINA_HEADER_RE = re.compile(r'@([^:]+):(\d+):(\d+):(\d+):(\d+)#(\d+)/(\d+)')
+ILLUMINA_HEADER_RE = re.compile(r'([^:]+):(\d+):([^:]+):(\d+):(\d+):(\d+):(\d+) (\d+):([YN]):(\d+):(\d+)')
 
 
 IlluminaHeader = namedtuple(
     'IlluminaHeader',
-    'instrument_name lane tile xcoord ycoord index read',
+    'instrument run flowcell_id lane tile xpos ypos read is_filtered controlnum, samplenum',
     module=__name__,
 )
 IlluminaHeader.__doc__ = '''\
 NamedTuple of header information for Illuma sequencing read.
 
-.. attribute:: instrument_name
+    attribute:: instrument
+	    Instrument ID (``str``).
 
-    Unique instrument name (``str``).
+    attribute:: run
+	    Run number on instrument (``int``).
 
-.. attribute:: lane
+    attribute:: flowcell_id
+	    flowcell ID (``str``).
 
-    Flowcell lane (``int``).
+    attribute:: lane
+	    Lane number (``int``).
 
-.. attribute:: tile
+    attribute:: tile
+	    Tile number (``int``).
 
-    Tile number within flowcell lane (``int``).
+    attribute:: xpos
+	    X coordinate of cluster (``int``).
 
-.. attribute:: xcoord
+    attribute:: ypos
+	    Y coordinate of cluster (``int``).
 
-    X coordinate of cluster within the tile (``int``).
+    attribute:: read
+	    Read number. 1 can be single read or Read 2 of paired-end (``int``).
 
-.. attribute:: ycoord
+    attribute:: is_filtered
+	    "Y" if the read is filtered (did not pass), "N" otherwise (``str``).
 
-    Y coordinate of cluster within the tile (``int``).
+    attribute:: controlnum
+	    0 when none of the control bits are on, otherwise it is an even
+	    number. On HiSeq X and NextSeq systems, control specification is
+	    not performed and this number is always 0. (``int``).
 
-.. attribute:: index
-
-    Index number for a multiplexed sample (``str``). Not sure if integer, leave
-    as string for now.
-
-.. attribute:: read
-
-    Index of read within pair/triplet/etc. (``int``, one-indexed).
+    attribute:: samplenum
+	    Sample number from sample sheet (``int``).
 '''
 
 
@@ -245,29 +251,42 @@ def get_barcode(read2, ctx):
 def parse_illumina_header(header):
     """Parse the header line from a read in an Illumia FASTQ file.
 
-    :param str header: Header line text, including first "@" character.
+    Source: http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
+
+    :param str header: Header line text, first "@" character optional.
 
     :rtype: .IlluminaHeader
     """
+    # Strip whitespace and remove leading @
+    header = header.strip()
+    if header[0] == '@':
+        header = header[1:]
+
+    # Parse w/ regex
+    match = ILLUMINA_HEADER_RE.match(header)
+
+    if match is None:
+        raise ValueError('header not in expected format')
+
+    # Unpack
+    inst, run, fcell, lane, tile, x, y, read, filtered, control, sample = match.groups()
+
     try:
-        match = ILLUMINA_HEADER_RE.match(header)
-
-        if match is None:
-            raise ValueError('header not in expected format')
-
-        instrument, lane, tile, xcoord, ycoord, index, read = match.groups()
-
         return IlluminaHeader(
-            instrument,
-            int(lane),
-            int(tile),
-            int(xcoord),
-            int(ycoord),
-            index,
-            int(read),
+            instrument=inst,
+            run=int(run),
+            flowcell_id=fcell,
+            lane=int(lane),
+            tile=int(tile),
+            xpos=int(x),
+            ypos=int(y),
+            read=int(read),
+            is_filtered=filtered == 'Y',
+            controlnum=int(control),
+            samplenum=int(sample),
         )
 
     except ValueError as exc:
-        # Doesn't match regex or can't parse int
+        # Can't parse int
         raise ValueError('Invalid header line: {}'.format(exc)) from None
 
