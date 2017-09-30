@@ -12,49 +12,13 @@ from Bio import SeqIO
 ILLUMINA_HEADER_RE = re.compile(r'([^:]+):(\d+):([^:]+):(\d+):(\d+):(\d+):(\d+) (\d+):([YN]):(\d+):(\d+)')
 
 
+# Named tuple for illumina header data
 IlluminaHeader = namedtuple(
     'IlluminaHeader',
     'instrument run flowcell_id lane tile xpos ypos read is_filtered controlnum, samplenum',
     module=__name__,
 )
-IlluminaHeader.__doc__ = '''\
-NamedTuple of header information for Illuma sequencing read.
-
-    attribute:: instrument
-	    Instrument ID (``str``).
-
-    attribute:: run
-	    Run number on instrument (``int``).
-
-    attribute:: flowcell_id
-	    flowcell ID (``str``).
-
-    attribute:: lane
-	    Lane number (``int``).
-
-    attribute:: tile
-	    Tile number (``int``).
-
-    attribute:: xpos
-	    X coordinate of cluster (``int``).
-
-    attribute:: ypos
-	    Y coordinate of cluster (``int``).
-
-    attribute:: read
-	    Read number. 1 can be single read or Read 2 of paired-end (``int``).
-
-    attribute:: is_filtered
-	    "Y" if the read is filtered (did not pass), "N" otherwise (``str``).
-
-    attribute:: controlnum
-	    0 when none of the control bits are on, otherwise it is an even
-	    number. On HiSeq X and NextSeq systems, control specification is
-	    not performed and this number is always 0. (``int``).
-
-    attribute:: samplenum
-	    Sample number from sample sheet (``int``).
-'''
+IlluminaHeader.__doc__ = '''http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm'''
 
 
 def zip_reads(files, format_, *, subsample=None, random=True):
