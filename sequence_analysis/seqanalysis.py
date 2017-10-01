@@ -3,6 +3,7 @@
 import re
 from collections import namedtuple
 from itertools import islice
+import math
 
 import numpy as np
 from Bio import SeqIO
@@ -186,7 +187,7 @@ def process_read_files(files, ctx=None, progress=False, **kwargs):
 def process_triplet(triplet, ctx):
     """Process a read triplet, apply filters, get mutation, barcode, and stats.
 
-    :param tuple triplet: 3-tuple of :class:`Bio.SeqIO.SeqRecord` ojects for
+    :param tuple triplet: 3-tuple of :class:`Bio.SeqIO.SeqRecord` objects for
         reads 1, 2, and 3.
     :param dict ctx: Context dictionary
     :returns: Dictionary of calculated values, or None if the triplet did not
@@ -199,18 +200,19 @@ def process_triplet(triplet, ctx):
     stats = dict()
 
     # TODO
-    filters = []
+    filters = [quality_filter, n_filter]
 
     # Run filters
-    for filter_ in filters:
-        if not filter_(triplet):
+    if not all([
+        all([filter_(r) for filter_ in filters])
+            for r in triplet]):
             return None
 
     # Find mutation
-    stats['mutation'] = find_mutation(r1, r3)
+    stats['mutation'] = find_mutation(rec1, rec3)
 
     # Find barcode sequence
-    stats['barcode'] = get_barcode(r2)
+    stats['barcode'] = get_barcode(rec2)
 
     # TODO
     # Collect more statistics
@@ -242,6 +244,37 @@ def get_barcode(read2, ctx):
     # TODO
 
 
+def call_filters(triplet):
+    """
+    :param triplet:
+    :return:
+    """
+    return all([quality_filter(i + 1, r) for r, i in enumerate(triplet)]) and all([n_filter(r) for r in triplet])
+
+
+def n_filter(record):
+    """
+    :param record:
+    :return:
+    """
+    return "N" not in record.seq
+
+
+def quality_filter(record, e_max):
+    """
+    quality score according to http://drive5.com/usearch/manual/exp_errs.html
+    :param record:
+    :param e_max:
+    :return:
+    """
+    p = 0
+
+    for phred in record.letter_annotations["phred_quality"]:
+        p += (10 ** (-phred / 10))
+
+    return math.floor(p) < e_max
+
+
 def parse_illumina_header(header):
     """Parse the header line from a read in an Illumia FASTQ file.
 
@@ -270,4 +303,3 @@ def parse_illumina_header(header):
     except ValueError as exc:
         # Doesn't match regex or can't parse int
         raise ValueError('Invalid header line: {}'.format(exc)) from None
-
