@@ -199,7 +199,6 @@ def process_triplet(triplet, ctx):
 
     stats = dict()
 
-    # TODO
     filters = [quality_filter, n_filter]
 
     # Run filters
@@ -244,27 +243,20 @@ def get_barcode(read2, ctx):
     # TODO
 
 
-def call_filters(triplet):
-    """
-    :param triplet:
-    :return:
-    """
-    return all([quality_filter(i + 1, r) for r, i in enumerate(triplet)]) and all([n_filter(r) for r in triplet])
-
-
 def n_filter(record):
     """
-    :param record:
+    removes reads with N's
+    :param record: record to be trimmed
     :return:
     """
     return "N" not in record.seq
 
 
-def quality_filter(record, e_max):
+def quality_filter(record, e_max=1):
     """
-    quality score according to http://drive5.com/usearch/manual/exp_errs.html
-    :param record:
-    :param e_max:
+    phred quality score filtering according to http://drive5.com/usearch/manual/exp_errs.html
+    :param record: record to be filtered
+    :param e_max: max threshold for p-value
     :return:
     """
     p = 0
