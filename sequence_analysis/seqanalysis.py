@@ -10,46 +10,16 @@ from Bio import SeqIO
 
 
 # Regular expression for Illumina FASTQ header
-ILLUMINA_HEADER_RE = re.compile(r'@([^:]+):(\d+):(\d+):(\d+):(\d+)#(\d+)/(\d+)')
+ILLUMINA_HEADER_RE = re.compile(r'([^:]+):(\d+):([^:]+):(\d+):(\d+):(\d+):(\d+) (\d+):([YN]):(\d+):(\d+)')
 
 
+# Named tuple for illumina header data
 IlluminaHeader = namedtuple(
     'IlluminaHeader',
-    'instrument_name lane tile xcoord ycoord index read',
+    'instrument run flowcell_id lane tile xpos ypos read is_filtered controlnum, samplenum',
     module=__name__,
 )
-IlluminaHeader.__doc__ = '''\
-NamedTuple of header information for Illuma sequencing read.
-
-.. attribute:: instrument_name
-
-    Unique instrument name (``str``).
-
-.. attribute:: lane
-
-    Flowcell lane (``int``).
-
-.. attribute:: tile
-
-    Tile number within flowcell lane (``int``).
-
-.. attribute:: xcoord
-
-    X coordinate of cluster within the tile (``int``).
-
-.. attribute:: ycoord
-
-    Y coordinate of cluster within the tile (``int``).
-
-.. attribute:: index
-
-    Index number for a multiplexed sample (``str``). Not sure if integer, leave
-    as string for now.
-
-.. attribute:: read
-
-    Index of read within pair/triplet/etc. (``int``, one-indexed).
-'''
+IlluminaHeader.__doc__ = '''http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm'''
 
 
 def zip_reads(files, format_, *, subsample=None, random=True):
@@ -270,28 +240,41 @@ def quality_filter(record, e_max=1):
 def parse_illumina_header(header):
     """Parse the header line from a read in an Illumia FASTQ file.
 
-    :param str header: Header line text, including first "@" character.
+    Source: http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
+
+    :param str header: Header line text, first "@" character optional.
 
     :rtype: .IlluminaHeader
     """
+    # Strip whitespace and remove leading @
+    header = header.strip()
+    if header[0] == '@':
+        header = header[1:]
+
+    # Parse w/ regex
+    match = ILLUMINA_HEADER_RE.match(header)
+
+    if match is None:
+        raise ValueError('header not in expected format')
+
+    # Unpack
+    inst, run, fcell, lane, tile, x, y, read, filtered, control, sample = match.groups()
+
     try:
-        match = ILLUMINA_HEADER_RE.match(header)
-
-        if match is None:
-            raise ValueError('header not in expected format')
-
-        instrument, lane, tile, xcoord, ycoord, index, read = match.groups()
-
         return IlluminaHeader(
-            instrument,
-            int(lane),
-            int(tile),
-            int(xcoord),
-            int(ycoord),
-            index,
-            int(read),
+            instrument=inst,
+            run=int(run),
+            flowcell_id=fcell,
+            lane=int(lane),
+            tile=int(tile),
+            xpos=int(x),
+            ypos=int(y),
+            read=int(read),
+            is_filtered=filtered == 'Y',
+            controlnum=int(control),
+            samplenum=int(sample),
         )
 
     except ValueError as exc:
-        # Doesn't match regex or can't parse int
+        # Can't parse int
         raise ValueError('Invalid header line: {}'.format(exc)) from None
